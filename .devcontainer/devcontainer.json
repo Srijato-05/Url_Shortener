@@ -1,0 +1,19 @@
+{
+    "name": "URL Shortener Full Stack",
+    "dockerComposeFile": "../docker-compose.yml",
+    "service": "frontend",
+    "workspaceFolder": "/app",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "Dart-Code.flutter",
+                "ms-python.python",
+                "ms-azuretools.vscode-docker"
+            ],
+            "settings": {
+                "dart.flutterSdkPath": "/opt/flutter"
+            }
+        }
+    },
+    "remoteUser": "root"
+}
