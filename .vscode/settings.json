@@ -1,18 +1,9 @@
 {
-    "python.defaultInterpreterPath": "F:\\Naiyo24\\Url_Shortner\\url_shortener_backend\\.venv\\Scripts\\python.exe",
+    "python.defaultInterpreterPath": "f:/Naiyo24/Url_Shortner/url_shortener_backend/.venv/Scripts/python.exe",
     "python.analysis.extraPaths": [
-        "F:\\Naiyo24\\Url_Shortner\\url_shortener_backend\\.venv\\Lib\\site-packages",
-        "url_shortener_backend"
+        "./url_shortener_backend"
     ],
-    "python.analysis.typeCheckingMode": "off",
     "python.analysis.autoImportCompletions": true,
-    "files.exclude": {
-        "**/.git": true,
-        "**/android": true,
-        "**/build": true
-    },
-    "search.exclude": {
-        "**/android": true,
-        "**/build": true
-    }
+    "python.analysis.typeCheckingMode": "basic",
+    "python.terminal.activateEnvInCurrentTerminal": true
 }
