@@ -1,5 +1,48 @@
-http://192.168.1.17/api/docs
+To manage your professionalized URL Shortener platform, here is the curated list of the most important commands you'll need:
 
-docker compose logs -f backend
-
+### 🚀 Core Deployment
+Use the automation script to ensure all environment variables (IP discovery, Branded Identity) are correctly injected:
+```powershell
+# Recommended: Start with Branded Identity
 .\start.ps1 -Domain naiyo24
+
+# Standard: Start with LAN IP discovery
+.\start.ps1
+
+# Stop all services
+docker compose down
+```
+
+### 📊 Monitoring & Logs
+Watch the "Premium Engine" (Scraping, Analytics, Tasks) in real-time:
+```powershell
+# Follow Backend & Worker activity
+docker compose logs -f backend worker
+
+# Check service status and ports
+docker compose ps
+```
+
+### 🗄️ Database Management
+Access the PostgreSQL database directly to inspect links or analytics:
+```powershell
+# Open the Postgres shell
+docker exec -it url_shortner-postgres-1 psql -U user -d url_db
+
+# Manual Table Cleanup (if needed)
+docker exec url_shortner-postgres-1 psql -U user -d url_db -c "DROP TABLE links CASCADE;"
+```
+
+### 🛠️ Maintenance & Forced Updates
+If you change the code and want to ensure the containers are 100% updated:
+```powershell
+# Rebuild and recreate everything
+docker compose up -d --build --force-recreate
+
+# Clear Docker cache (if builds get stuck)
+docker builder prune -f
+```
+
+### 🌐 Access Points
+*   **Dashboard**: `http://localhost:8080` (or `http://naiyo24:8080`)
+*   **Interactive API**: `http://localhost:8000/docs` (or `http://naiyo24:8000/docs`)
