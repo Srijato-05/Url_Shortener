@@ -1,18 +1,18 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Request, Response
-from fastapi.responses import RedirectResponse
-from sqlalchemy.orm import Session
+from fastapi import FastAPI, Depends, HTTPException, status, Request, Response # type: ignore
+from fastapi.responses import RedirectResponse # type: ignore
+from sqlalchemy.orm import Session # type: ignore
 from datetime import datetime, timezone
 from typing import Optional
 import os
-import qrcode
+import qrcode # type: ignore
 from io import BytesIO
 
-import models, schemas, utils
-from database import SessionLocal, engine
-from redis_client import redis_client
-from celery_worker import log_click
+import models, schemas, utils # type: ignore
+from database import SessionLocal, engine # type: ignore
+from redis_client import redis_client # type: ignore
+from celery_worker import log_click, scrape_metadata_task # type: ignore
 
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware # type: ignore
 
 import os
 
@@ -23,31 +23,12 @@ app = FastAPI(title="URL Shortener API")
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 API_BASE_URL_OVERRIDE = os.getenv("API_BASE_URL")
 
-def get_base_url(request: Request) -> str:
-    """
-    Dynamically determines the base URL for asset construction.
-    Prioritizes the API_BASE_URL environment variable if defined.
-    Otherwise, derives the URL from the request context, supporting proxy headers.
-    """
-    if API_BASE_URL_OVERRIDE:
-        return API_BASE_URL_OVERRIDE.rstrip("/")
-
-    # Derivation from Request headers (X-Forwarded headers for Proxy support)
-    host = request.headers.get("x-forwarded-host", request.url.hostname)
-    port = request.headers.get("x-forwarded-port", request.url.port)
-    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
-    
-    # Construct base string
-    base = f"{proto}://{host}"
-    if port and port not in ("80", "443"):
-        base += f":{port}"
-    
-    return base.rstrip("/")
+# Redundant local base_url resolution removed in favor of centralized utils logic.
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -91,10 +72,14 @@ def shorten_link(link: schemas.LinkCreate, request: Request, db: Session = Depen
     redis_client.set(short_code, str(link.original_url))
     
     # Dynamic URL Construction
-    base_url = get_base_url(request)
+    base_url = utils.get_base_url(request)
     res = schemas.LinkResponse.model_validate(db_link)
     res.short_url = f"{base_url}/{short_code}"
     res.qr_url = f"{base_url}/qr/{short_code}"
+
+    # 4. Trigger Metadata Enrichment (Async)
+    scrape_metadata_task.delay(short_code, str(link.original_url))
+
     return res
 
 @app.get("/qr/{short_code}")
@@ -104,8 +89,8 @@ def get_qr_code(short_code: str, request: Request, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="Resource not located")
     
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
-    # Dynamic QR content derived from request base
-    base_url = get_base_url(request)
+    # Centralized Dynamic QR content derived from request base
+    base_url = utils.get_base_url(request)
     qr_content = f"{base_url}/{short_code}"
     qr.add_data(qr_content)
     qr.make(fit=True)
@@ -160,7 +145,7 @@ def get_link_stats(short_code: str, db: Session = Depends(get_db)):
     
     total_clicks = db.query(models.Click).filter(models.Click.link_id == db_link.id).count()
     
-    from sqlalchemy import func
+    from sqlalchemy import func # type: ignore
     device_data = db.query(
         models.Click.device, 
         func.count(models.Click.id)

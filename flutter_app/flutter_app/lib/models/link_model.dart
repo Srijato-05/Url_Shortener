@@ -8,6 +8,8 @@ class LinkModel {
   final DateTime? expiryTime;
   final String? customAlias;
 
+  final String? description;
+  final String? faviconUrl;
   final String? qrUrl;
 
   LinkModel({
@@ -19,6 +21,8 @@ class LinkModel {
     required this.createdAt,
     this.expiryTime,
     this.customAlias,
+    this.description,
+    this.faviconUrl,
     this.qrUrl,
   });
 
@@ -26,6 +30,8 @@ class LinkModel {
     return LinkModel(
       id: json['id'],
       title: json['title'],
+      description: json['description'],
+      faviconUrl: json['favicon_url'],
       originalUrl: json['original_url'],
       shortCode: json['short_code'],
       shortUrl: json['short_url'],
@@ -40,6 +46,8 @@ class LinkModel {
     return {
       'id': id,
       'title': title,
+      'description': description,
+      'favicon_url': faviconUrl,
       'original_url': originalUrl,
       'short_code': shortCode,
       'short_url': shortUrl,

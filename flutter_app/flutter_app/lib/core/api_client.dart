@@ -17,19 +17,18 @@ class ApiClient {
   }
 
   String _resolveBaseUrl() {
-    const buildTimeUrl = String.fromEnvironment('API_BASE_URL');
-    
-    if (!kIsWeb) return buildTimeUrl.isNotEmpty ? buildTimeUrl : 'http://10.0.2.2:8000';
+    if (!kIsWeb) return 'http://10.0.2.2:8000';
 
-    // In Web environments, prioritize the current origin to avoid 'localhost' mismatches
+    // Purely dynamic origin resolution for Web
     final currentOrigin = html.window.location.origin;
-    if (currentOrigin.contains('localhost')) {
-      return buildTimeUrl.isNotEmpty ? buildTimeUrl : 'http://localhost:8000';
+    
+    // If the frontend is served on port 8080, assume the API is on port 8000
+    if (currentOrigin.contains(':8080')) {
+       return currentOrigin.replaceFirst(':8080', ':8000');
     }
 
-    // If served from a real IP/Domain, assume API is on port 8000 of the same host
-    // or use the browser's origin if it's the same port (reverse proxy setup)
-    return currentOrigin.replaceFirst(':8080', ':8000');
+    // Default to the current origin (e.g. for reverse proxy or same-port setups)
+    return currentOrigin;
   }
 
   Future<Map<String, dynamic>> fetchStats(String shortCode) async {

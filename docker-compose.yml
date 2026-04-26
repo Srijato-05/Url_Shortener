@@ -17,8 +17,6 @@ services:
 
   backend:
     build: ./url_shortener_backend
-    ports:
-      - "8000:8000"
     volumes:
       - ./url_shortener_backend:/app
       - /app/.venv
@@ -28,6 +26,8 @@ services:
       - REDIS_HOST=redis
       - API_BASE_URL=${API_BASE_URL}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+    ports:
+      - "8000:8000"
     depends_on:
       - postgres
       - redis

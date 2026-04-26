@@ -1,4 +1,4 @@
-from celery import Celery
+from celery import Celery # type: ignore
 import os
 
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -9,9 +9,24 @@ celery_app = Celery(
     backend=redis_url
 )
 
-import models
-import user_agents
-from database import SessionLocal
+import models # type: ignore
+import user_agents # type: ignore
+import utils # type: ignore
+from database import SessionLocal # type: ignore
+
+@celery_app.task
+def scrape_metadata_task(short_code: str, original_url: str):
+    db = SessionLocal()
+    try:
+        metadata = utils.scrape_metadata(original_url)
+        link = db.query(models.Link).filter(models.Link.short_code == short_code).first()
+        if link:
+            link.title = metadata.get("title")
+            link.description = metadata.get("description")
+            link.favicon_url = metadata.get("favicon_url")
+            db.commit()
+    finally:
+        db.close()
 
 @celery_app.task
 def log_click(short_code, ip=None, ua=None, referrer=None):

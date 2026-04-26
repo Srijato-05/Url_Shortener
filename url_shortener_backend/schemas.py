@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, HttpUrl
+from pydantic import BaseModel, EmailStr, HttpUrl, ConfigDict # type: ignore
 from typing import Optional, List
 from datetime import datetime
 
@@ -10,7 +10,9 @@ class LinkCreate(BaseModel):
 
 class LinkResponse(BaseModel):
     id: int
-    title: Optional[str]
+    title: Optional[str] = None
+    description: Optional[str] = None
+    favicon_url: Optional[str] = None
     original_url: str
     short_code: str
     short_url: Optional[str] = None

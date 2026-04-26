@@ -58,7 +58,7 @@ class _HistoryListState extends ConsumerState<HistoryList> {
           itemCount: history.length,
           itemBuilder: (context, index) {
             final link = history[index];
-            return Card(
+             return Card(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -67,28 +67,62 @@ class _HistoryListState extends ConsumerState<HistoryList> {
               ),
               child: ListTile(
                 contentPadding: const EdgeInsets.all(16),
+                leading: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: link.faviconUrl != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            link.faviconUrl!,
+                            errorBuilder: (c, e, s) => const Icon(Icons.link, color: Colors.indigo),
+                          ),
+                        )
+                      : const Icon(Icons.link, color: Colors.indigo),
+                ),
                 title: Text(
-                  link.shortUrl,
+                  link.title ?? link.shortUrl,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 18,
+                    fontSize: 16,
                     color: Colors.indigo,
                   ),
                 ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 8),
+                    if (link.title != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        link.shortUrl,
+                        style: const TextStyle(
+                          color: Colors.blueAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                    if (link.description != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        link.description!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.blueGrey[600], fontSize: 12),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
                     Text(
-                      link.originalUrl,
+                      'ORIGINAL: ${link.originalUrl}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.blueGrey[400], fontSize: 13),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'TIMESTAMP: ${DateFormat('yyyy-MM-dd HH:mm').format(link.createdAt)}',
-                      style: TextStyle(color: Colors.blueGrey[300], fontSize: 11, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: Colors.blueGrey[300], fontSize: 10),
                     ),
                   ],
                 ),
