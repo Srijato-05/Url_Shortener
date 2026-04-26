@@ -22,12 +22,16 @@ class ApiClient {
     // Purely dynamic origin resolution for Web
     final currentOrigin = html.window.location.origin;
     
-    // If the frontend is served on port 8080, assume the API is on port 8000
+    // If the frontend is served on port 8080 (Dev mode), assume the API is on port 8000
     if (currentOrigin.contains(':8080')) {
        return currentOrigin.replaceFirst(':8080', ':8000');
     }
 
-    // Default to the current origin (e.g. for reverse proxy or same-port setups)
+    // Gateway mode (Port 80/443): Use /api prefix for all backend calls
+    if (!currentOrigin.contains(':')) {
+       return '$currentOrigin/api';
+    }
+
     return currentOrigin;
   }
 

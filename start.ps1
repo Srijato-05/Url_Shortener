@@ -23,6 +23,21 @@ if (-not $ip) {
 }
 
 if ($Domain) {
+    # 1.1 Automated Branding Registration (Requires Admin)
+    # Note: For cross-device support (phones/tablets), use 'naiyo24.local' and set PC name to 'naiyo24'
+    try {
+        $hostFile = "$env:windir\System32\drivers\etc\hosts"
+        $mapping = "127.0.0.1  $Domain"
+        if (!(Select-String -Path $hostFile -Pattern $Domain -Quiet)) {
+            Write-Output "Attempting to register branded domain locally..."
+            Add-Content -Path $hostFile -Value "`n$mapping" -ErrorAction Stop
+            Write-Output "Successfully registered $Domain in HOSTS file."
+        }
+    } catch {
+        Write-Output "Note: Branded resolution (http://$Domain) requires a one-time HOSTS entry."
+        Write-Output "To enable it automatically, run this script as Administrator."
+    }
+
     $ip = $Domain
     $apiBase = "http://$Domain"
 } else {
@@ -44,6 +59,6 @@ if ($Domain) {
     Write-Output "Branded Identity Active: $Domain"
     Write-Output "Branded Links: http://$($Domain)/[alias]"
 }
-Write-Output "Access the Dashboard at: http://$($ip):8080"
-Write-Output "Access the API (Swagger) at: http://$($ip):8000/docs"
+Write-Output "Access the Dashboard at: http://$($ip)"
+Write-Output "Access the API (Swagger) at: http://$($ip)/api/docs"
 Write-Output ""
