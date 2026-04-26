@@ -1,29 +1,39 @@
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 
 class ApiClient {
-  final Dio dio = Dio(BaseOptions(
-    baseUrl: 'http://localhost:8000',
-    connectTimeout: const Duration(seconds: 5),
-    receiveTimeout: const Duration(seconds: 3),
-  ));
+  late final String _baseUrl;
+  late final Dio dio;
 
   ApiClient() {
-    dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final prefs = await SharedPreferences.getInstance();
-        final token = prefs.getString('auth_token');
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        return handler.next(options);
-      },
-      onError: (e, handler) {
-        if (e.response?.statusCode == 401) {
-          // Handle token expiry / unauthorized
-        }
-        return handler.next(e);
-      },
+    _baseUrl = _resolveBaseUrl();
+    dio = Dio(BaseOptions(
+      baseUrl: _baseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
     ));
+  }
+
+  String _resolveBaseUrl() {
+    const buildTimeUrl = String.fromEnvironment('API_BASE_URL');
+    
+    if (!kIsWeb) return buildTimeUrl.isNotEmpty ? buildTimeUrl : 'http://10.0.2.2:8000';
+
+    // In Web environments, prioritize the current origin to avoid 'localhost' mismatches
+    final currentOrigin = html.window.location.origin;
+    if (currentOrigin.contains('localhost')) {
+      return buildTimeUrl.isNotEmpty ? buildTimeUrl : 'http://localhost:8000';
+    }
+
+    // If served from a real IP/Domain, assume API is on port 8000 of the same host
+    // or use the browser's origin if it's the same port (reverse proxy setup)
+    return currentOrigin.replaceFirst(':8080', ':8000');
+  }
+
+  Future<Map<String, dynamic>> fetchStats(String shortCode) async {
+    final response = await dio.get('/$shortCode/stats');
+    return response.data;
   }
 }

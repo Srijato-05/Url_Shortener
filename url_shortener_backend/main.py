@@ -1,31 +1,56 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi import FastAPI, Depends, HTTPException, status, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
+import os
+import qrcode
+from io import BytesIO
 
 import models, schemas, utils
 from database import SessionLocal, engine
 from redis_client import redis_client
 from celery_worker import log_click
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import jwt
 
 from fastapi.middleware.cors import CORSMiddleware
 
+import os
+
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Premium URL Shortener API")
+app = FastAPI(title="URL Shortener API")
+
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+API_BASE_URL_OVERRIDE = os.getenv("API_BASE_URL")
+
+def get_base_url(request: Request) -> str:
+    """
+    Dynamically determines the base URL for asset construction.
+    Prioritizes the API_BASE_URL environment variable if defined.
+    Otherwise, derives the URL from the request context, supporting proxy headers.
+    """
+    if API_BASE_URL_OVERRIDE:
+        return API_BASE_URL_OVERRIDE.rstrip("/")
+
+    # Derivation from Request headers (X-Forwarded headers for Proxy support)
+    host = request.headers.get("x-forwarded-host", request.url.hostname)
+    port = request.headers.get("x-forwarded-port", request.url.port)
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    
+    # Construct base string
+    base = f"{proto}://{host}"
+    if port and port not in ("80", "443"):
+        base += f":{port}"
+    
+    return base.rstrip("/")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 # Dependency
 def get_db():
@@ -35,61 +60,19 @@ def get_db():
     finally:
         db.close()
 
-async def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    if not token:
-        return None
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, utils.SECRET_KEY, algorithms=[utils.ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-    except Exception:
-        raise credentials_exception
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if user is None:
-        raise credentials_exception
-    return user
-
-@app.post("/register", response_model=schemas.UserResponse)
-def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    hashed_password = utils.get_password_hash(user.password)
-    new_user = models.User(email=user.email, password_hash=hashed_password)
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
-
-@app.post("/token", response_model=schemas.Token)
-def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == form_data.username).first()
-    if not user or not utils.verify_password(form_data.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token = utils.create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/shorten", response_model=schemas.LinkResponse)
-def create_link(
-    link: schemas.LinkCreate, 
-    db: Session = Depends(get_db), 
-    current_user: Optional[models.User] = Depends(get_current_user)
-):
+def shorten_link(link: schemas.LinkCreate, request: Request, db: Session = Depends(get_db)):
     # Check for custom alias
     if link.custom_alias:
+        if not utils.is_valid_alias(link.custom_alias):
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid custom alias format. Use alphanumeric characters, underscores, or hyphens (3-32 chars)."
+            )
         existing = db.query(models.Link).filter(models.Link.custom_alias == link.custom_alias).first()
         if existing:
-            raise HTTPException(status_code=400, detail="Custom alias already taken")
+            raise HTTPException(status_code=400, detail="Custom alias already reserved")
         short_code = link.custom_alias
     else:
         short_code = utils.generate_short_code()
@@ -98,8 +81,7 @@ def create_link(
         original_url=str(link.original_url),
         short_code=short_code,
         custom_alias=link.custom_alias,
-        expiry_time=link.expiry_time,
-        user_id=current_user.id if current_user else None
+        expiry_time=link.expiry_time
     )
     db.add(db_link)
     db.commit()
@@ -108,17 +90,37 @@ def create_link(
     # Cache in Redis
     redis_client.set(short_code, str(link.original_url))
     
-    # Convert to schema explicitly for host construction
+    # Dynamic URL Construction
+    base_url = get_base_url(request)
     res = schemas.LinkResponse.model_validate(db_link)
-    res.short_url = f"http://localhost:8000/{short_code}"
+    res.short_url = f"{base_url}/{short_code}"
+    res.qr_url = f"{base_url}/qr/{short_code}"
     return res
+
+@app.get("/qr/{short_code}")
+def get_qr_code(short_code: str, request: Request, db: Session = Depends(get_db)):
+    db_link = db.query(models.Link).filter(models.Link.short_code == short_code).first()
+    if not db_link:
+        raise HTTPException(status_code=404, detail="Resource not located")
+    
+    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    # Dynamic QR content derived from request base
+    base_url = get_base_url(request)
+    qr_content = f"{base_url}/{short_code}"
+    qr.add_data(qr_content)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return Response(content=buf.getvalue(), media_type="image/png")
 
 @app.get("/{short_code}")
 def redirect_to_url(short_code: str, request: Request, db: Session = Depends(get_db)):
     # 1. Try Redis cache
     cached_url = redis_client.get(short_code)
     if cached_url:
-        target_url = cached_url.decode('utf-8')
+        target_url = cached_url
     else:
         # 2. Try Database
         db_link = db.query(models.Link).filter(models.Link.short_code == short_code).first()
@@ -136,25 +138,48 @@ def redirect_to_url(short_code: str, request: Request, db: Session = Depends(get
     log_click.delay(
         short_code=short_code, 
         ip=request.client.host, 
-        ua=request.headers.get("user-agent")
+        ua=request.headers.get("user-agent"),
+        referrer=request.headers.get("referer")
     )
     
     return RedirectResponse(url=target_url)
 
-@app.get("/analytics/{short_code}", response_model=schemas.LinkAnalytics)
-def get_analytics(short_code: str, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    db_link = db.query(models.Link).filter(
-        models.Link.short_code == short_code,
-        models.Link.user_id == current_user.id
-    ).first()
-    
+@app.get("/{short_code}/stats", response_model=schemas.LinkStats)
+def get_link_stats(short_code: str, db: Session = Depends(get_db)):
+    # 1. Attempt Cache Retrieval
+    cache_key = f"stats:{short_code}"
+    cached_stats = redis_client.get(cache_key)
+    if cached_stats:
+        import json
+        return schemas.LinkStats.model_validate_json(cached_stats)
+
+    # 2. Database Aggregation
+    db_link = db.query(models.Link).filter(models.Link.short_code == short_code).first()
     if not db_link:
-        raise HTTPException(status_code=404, detail="Link not found or unauthorized")
+        raise HTTPException(status_code=404, detail="Resource not located")
     
-    clicks = db.query(models.Click).filter(models.Click.link_id == db_link.id).all()
+    total_clicks = db.query(models.Click).filter(models.Click.link_id == db_link.id).count()
     
-    return {
-        "link": schemas.LinkResponse.model_validate(db_link),
-        "total_clicks": len(clicks),
-        "recent_clicks": clicks[-10:] if clicks else []
-    }
+    from sqlalchemy import func
+    device_data = db.query(
+        models.Click.device, 
+        func.count(models.Click.id)
+    ).filter(models.Click.link_id == db_link.id).group_by(models.Click.device).all()
+    
+    distribution = [
+        schemas.DeviceStats(device_type=d[0] or "Unknown", count=d[1]) 
+        for d in device_data
+    ]
+    
+    stats_data = schemas.LinkStats(
+        total_clicks=total_clicks,
+        device_distribution=distribution,
+        created_at=db_link.created_at
+    )
+
+    # 3. Persistence to Cache
+    import json
+    redis_client.setex(cache_key, 60, stats_data.model_dump_json())
+    
+    return stats_data
+

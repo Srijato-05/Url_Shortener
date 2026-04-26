@@ -23,15 +23,20 @@ services:
       - ./url_shortener_backend:/app
       - /app/.venv
     environment:
-      - DATABASE_URL=postgresql://user:password@postgres/url_db
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:password@postgres/url_db}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - REDIS_HOST=redis
-      - REDIS_URL=redis://redis:6379/0
+      - API_BASE_URL=${API_BASE_URL}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
     depends_on:
       - postgres
       - redis
 
   frontend:
-    build: ./flutter_app/flutter_app
+    build:
+      context: ./flutter_app/flutter_app
+      args:
+        - API_BASE_URL=http://localhost:8000
     ports:
       - "8080:8080"
     depends_on:
@@ -47,6 +52,7 @@ services:
       - DATABASE_URL=postgresql://user:password@postgres/url_db
       - REDIS_HOST=redis
       - REDIS_URL=redis://redis:6379/0
+      - API_BASE_URL=http://localhost:8000
     depends_on:
       - redis
       - postgres

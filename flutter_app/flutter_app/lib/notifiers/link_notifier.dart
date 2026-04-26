@@ -5,20 +5,11 @@ import '../providers/api_provider.dart';
 class LinkNotifier extends StateNotifier<AsyncValue<List<LinkModel>>> {
   final Ref ref;
 
-  LinkNotifier(this.ref) : super(const AsyncValue.loading()) {
-    fetchLinks();
-  }
+  LinkNotifier(this.ref) : super(const AsyncValue.data([]));
 
   Future<void> fetchLinks() async {
-    state = const AsyncValue.loading();
-    try {
-      final client = ref.read(apiProvider);
-      final response = await client.dio.get('/analytics'); // Assuming we want user's links
-      final List data = response.data;
-      state = AsyncValue.data(data.map((e) => LinkModel.fromJson(e)).toList());
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
+    // No-op: Auth-protected analytics removed
+    state = const AsyncValue.data([]);
   }
 
   Future<LinkModel> shortenUrl(String url, {String? customAlias, DateTime? expiry}) async {
@@ -30,11 +21,14 @@ class LinkNotifier extends StateNotifier<AsyncValue<List<LinkModel>>> {
         if (expiry != null) 'expiry_time': expiry.toIso8601String(),
       });
       final newLink = LinkModel.fromJson(response.data);
-      await fetchLinks();
       return newLink;
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<Map<String, dynamic>> getStats(String shortCode) async {
+    return await ref.read(apiProvider).fetchStats(shortCode);
   }
 }
 

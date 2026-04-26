@@ -5,16 +5,21 @@ import 'package:flutter/services.dart';
 import '../notifiers/link_notifier.dart';
 import '../widgets/shorten_form.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  @override
+  Widget build(BuildContext context) {
     final linksAsync = ref.watch(linksProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Dashboard'),
+        title: const Text('Analytical Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -32,7 +37,7 @@ class DashboardScreen extends ConsumerWidget {
           Expanded(
             child: linksAsync.when(
               data: (links) => links.isEmpty
-                  ? const Center(child: Text('No links shortened yet.'))
+                  ? const Center(child: Text('No historical data located.'))
                   : ListView.builder(
                       itemCount: links.length,
                       itemBuilder: (context, index) {
@@ -48,7 +53,7 @@ class DashboardScreen extends ConsumerWidget {
                                 onPressed: () {
                                   Clipboard.setData(ClipboardData(text: link.shortUrl));
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('URL copied to clipboard')),
+                                    const SnackBar(content: Text('URL copied to clipboard.')),
                                   );
                                 },
                               ),
@@ -66,7 +71,7 @@ class DashboardScreen extends ConsumerWidget {
                       },
                     ),
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, stack) => Center(child: Text('Error: $err')),
+              error: (err, stack) => Center(child: Text('System Error: $err')),
             ),
           ),
         ],

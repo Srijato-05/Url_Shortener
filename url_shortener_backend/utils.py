@@ -1,32 +1,24 @@
 import string
 import random
-from passlib.context import CryptContext
-from datetime import datetime, timedelta
-from jose import jwt
+import re
 from typing import Optional
-
-# Security configurations
-SECRET_KEY = "your-secret-key-change-this-in-production"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
 
 def generate_short_code(length=6):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+RESERVED_WORDS = {'localhost', 'stats', 'qr', 'docs', 'redoc', 'health', 'api', 'admin'}
+
+def is_valid_alias(alias: str) -> bool:
+    """
+    Validates that the custom alias follows professional URL standards:
+    - Alphanumeric, underscores, or hyphens only.
+    - Length between 3 and 32 characters.
+    - Cannot be a reserved system word.
+    """
+    if not 3 <= len(alias) <= 32:
+        return False
+    
+    if alias.lower() in RESERVED_WORDS:
+        return False
+        
+    return bool(re.match(r"^[a-zA-Z0-9_-]+$", alias))

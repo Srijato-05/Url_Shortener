@@ -3,16 +3,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
 
-class User(Base):
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    password_hash = Column(String, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    links = relationship("Link", back_populates="owner")
-
 class Link(Base):
     __tablename__ = "links"
 
@@ -23,9 +13,7 @@ class Link(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     expiry_time = Column(DateTime(timezone=True), nullable=True)
     custom_alias = Column(String, unique=True, index=True, nullable=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
-    owner = relationship("User", back_populates="links")
     clicks = relationship("Click", back_populates="link", cascade="all, delete-orphan")
 
 class Click(Base):
@@ -36,7 +24,9 @@ class Click(Base):
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     ip_address = Column(String, nullable=True)
     user_agent = Column(Text, nullable=True)
-    location = Column(String, nullable=True)
+    location = Column(String, nullable=True) # Used for Referrer
     device = Column(String, nullable=True)
+    browser = Column(String, nullable=True)
+    os_info = Column(String, nullable=True)
 
     link = relationship("Link", back_populates="clicks")

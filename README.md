@@ -1,6 +1,6 @@
 # URL Shortener Technical Documentation
 
-This project is a full-stack, containerized URL shortening system designed to provide a frictionless user experience while maintaining a robust, scalable backend. It supports both anonymous and authenticated link management, real-time analytics logging through background workers, and a clean, Material 3-based web interface.
+This project is a full-stack, containerized URL shortening system designed for a frictionless, anonymous user experience. It supports instant link shortening, custom alias selection, and configurable link expiry—all without requiring accounts or registration.
 
 ## System Architecture
 
@@ -22,19 +22,24 @@ The backend is built with Python 3.12 and FastAPI. It follows a modular design w
 
 ### API Layer
 The API defines several key endpoints:
--   Shorten: Accepts a long URL and returns a unique short code. Authentication is optional; providing a JWT token associates the link with a user account, while omitting it creates a public/anonymous link.
--   Redirection: Intercepts hits on shortened codes, triggers a background logging task, and executes a 307 Temporary Redirect to the original destination.
--   Analytics: Provides detailed click-through data for authenticated users.
+-   Shorten: Accepts a URL, optional custom alias, and optional expiry time. Returns a unique, absolute short URL.
+-   Redirection: Intercepts short codes, logs metadata in the background via Celery, and redirects the user to the target destination.
 
 ### Data Modeling and Relations
 The system uses SQLAlchemy as its ORM. The relational schema is centered around three primary entities:
 
--   User Table: Stores identity and authentication data.
--   Link Table: The core of the application. Each link has a one-to-many relationship with the Clicks table and an optional many-to-one relationship with the User table.
--   Click Table: Records metadata for every redirect action, including timestamps, device types, and browser information.
+-   Link Table: Stores the mapping between short codes and original URLs, along with expiry and custom alias metadata.
+-   Click Table: Records telemetry (timestamp, device, etc.) for every redirect via an asynchronous worker.
 
-### Asynchronous Pipeline
-Click tracking is handled via Celery. When a link is visited, the backend produces an event into a Redis queue. The worker process picks up this event and performs the database write. This ensures that the redirection speed for the visitor is never compromised by slow database performance.
+### Asynchronous Analytics Pipeline
+The system captures rich telemetry for every redirection without impacting performance. When a link is visited, the following metadata is logged in the background:
+-   **IP Address**: Captured from the request client.
+-   **Device Type**: Categorized as Mobile, PC, Tablet, or Bot.
+-   **Browser & OS**: Extracted and parsed via the `user-agents` library.
+-   **Referrer**: Captured to track the source of the click.
+-   **Timestamp**: UTC-aware precise event timing.
+
+This event is dispatched to a Redis queue and processed by a Celery worker, which persists the data to PostgreSQL.
 
 ---
 
@@ -62,9 +67,11 @@ The entire lifecycle is managed through Docker Compose.
 -   Frontend: Uses a multi-stage build starting with a Java/Flutter environment to compile the web assets, then serving them via a lightweight web server.
 
 ### Environment Configuration
-The system relies on several environment variables for service discovery:
+The system relies on several environment variables for service discovery and behavioral configuration:
 -   DATABASE_URL: Link to the PostgreSQL instance.
 -   REDIS_URL: Connection string for the Redis queue.
+-   API_BASE_URL: The public-facing URL of the API (e.g., `http://localhost:8000`), used to construct absolute short links.
+-   ALLOWED_ORIGINS: A comma-separated list of origins permitted to access the API via CORS.
 
 ---
 
@@ -86,9 +93,18 @@ Models are defined in `models.py`. The application is configured to create table
 
 ---
 
-## Future Roadmap
+## Troubleshooting
 
-The system is designed for extensibility. Future iterations could include:
--   Advanced Analytics: Visualizing click trends over time using time-series data.
--   QR Code Generation: Automatically generating downloadable QR codes for every shortened link.
--   API Key Management: Allowing third-party integrations to tap into the shortening engine.
+### Red Squiggles in IDE (Imports not found)
+If VS Code shows errors like `Could not find import for fastapi`, ensure the IDE is using the project's virtual environment:
+1. Open a terminal in `url_shortener_backend`.
+2. Run `poetry install` to synchronize the environment.
+3. In VS Code, press `Ctrl+Shift+P` and select **Python: Select Interpreter**.
+4. Choose the path ending in `url_shortener_backend/.venv/Scripts/python.exe`.
+5. Run **Developer: Reload Window** to refresh the language server.
+
+### Android Licensing/Gradle Issues
+This project is optimized for **Web**. If you encounter Android license errors:
+1. Ensure the Android SDK is installed.
+2. Run `flutter doctor --android-licenses` and accept all.
+3. If Java/Gradle version conflicts occur, verify you are using **Java 17** for the build.

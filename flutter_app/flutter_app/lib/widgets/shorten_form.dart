@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../notifiers/link_notifier.dart';
+import '../notifiers/history_notifier.dart';
+import '../models/link_model.dart';
 
 class ShortenForm extends ConsumerStatefulWidget {
   const ShortenForm({super.key});
@@ -17,7 +20,7 @@ class _ShortenFormState extends ConsumerState<ShortenForm> {
   final _aliasController = TextEditingController();
   DateTime? _selectedDate;
   bool _isShortening = false;
-  String? _lastShortenedUrl;
+  LinkModel? _lastLink;
 
   @override
   void dispose() {
@@ -27,11 +30,16 @@ class _ShortenFormState extends ConsumerState<ShortenForm> {
   }
 
   Future<void> _handleShorten() async {
-    if (_urlController.text.isEmpty) return;
+    if (_urlController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Validation Error: URL input is required.')),
+      );
+      return;
+    }
 
     setState(() {
       _isShortening = true;
-      _lastShortenedUrl = null;
+      _lastLink = null;
     });
     try {
       final newLink = await ref.read(linksProvider.notifier).shortenUrl(
@@ -41,24 +49,42 @@ class _ShortenFormState extends ConsumerState<ShortenForm> {
       );
       
       if (mounted) {
+        // Save to Local History
+        await ref.read(historyProvider.notifier).addLink(newLink);
+        
         setState(() {
-          _lastShortenedUrl = newLink.shortUrl;
+          _lastLink = newLink;
         });
         _urlController.clear();
         _aliasController.clear();
         setState(() => _selectedDate = null);
         
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('URL shortened successfully!')),
+          const SnackBar(content: Text('URL shortened and saved to history!')),
         );
       }
     } catch (e) {
       if (mounted) {
+        String msg = 'System Error: Verification of technical integrity failed.';
+        final errStr = e.toString().toLowerCase();
+        if (errStr.contains('400')) {
+          msg = 'Alias Collision: This custom name is already reserved.';
+        } else if (errStr.contains('410')) {
+          msg = 'Security Error: This link has reached its expiry threshold.';
+        } else if (errStr.contains('connection')) {
+          msg = 'Connectivity Alert: Synchronization with the backend failed.';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
-    } finally {
+    }
+ finally {
       if (mounted) setState(() => _isShortening = false);
     }
   }
@@ -130,46 +156,70 @@ class _ShortenFormState extends ConsumerState<ShortenForm> {
             ),
           ),
         ),
-        if (_lastShortenedUrl != null) ...[
+        if (_lastLink != null) ...[
           const SizedBox(height: 24),
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.green.shade200),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+              border: Border.all(color: Colors.blue.withOpacity(0.2)),
             ),
             child: Column(
               children: [
+                const Icon(Icons.check_circle, color: Colors.green, size: 48),
+                const SizedBox(height: 16),
                 const Text(
-                  'Your Shortened URL:',
-                  style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                  'URL Shortened Successfully!',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 12),
-                SelectableText(
-                  _lastShortenedUrl!,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo),
-                  textAlign: TextAlign.center,
+                const SizedBox(height: 20),
+                QrImageView(
+                  data: _lastLink!.shortUrl,
+                  version: QrVersions.auto,
+                  size: 160.0,
+                  backgroundColor: Colors.white,
                 ),
                 const SizedBox(height: 16),
+                SelectableText(
+                  _lastLink!.shortUrl,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueAccent,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     ElevatedButton.icon(
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: _lastShortenedUrl!));
+                        Clipboard.setData(ClipboardData(text: _lastLink!.shortUrl));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Copied to clipboard!')),
                         );
                       },
                       icon: const Icon(Icons.copy),
                       label: const Text('Copy'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    ElevatedButton.icon(
+                    OutlinedButton.icon(
                       onPressed: () async {
-                         if (await canLaunchUrlString(_lastShortenedUrl!)) {
-                            await launchUrlString(_lastShortenedUrl!, mode: LaunchMode.externalApplication);
+                         if (await canLaunchUrlString(_lastLink!.shortUrl)) {
+                            await launchUrlString(_lastLink!.shortUrl, mode: LaunchMode.externalApplication);
                          }
                       },
                       icon: const Icon(Icons.open_in_new),

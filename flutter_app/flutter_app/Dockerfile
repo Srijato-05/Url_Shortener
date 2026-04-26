@@ -28,8 +28,9 @@ COPY . .
 # Get dependencies
 RUN flutter pub get
 
-# Build for web (optional, but good for verification)
-RUN flutter build web
+# Build for web with dynamic API_BASE_URL
+ARG API_BASE_URL=http://localhost:8000
+RUN flutter build web --dart-define=API_BASE_URL=$API_BASE_URL
 
 # We will serve the web app or run it in a way the host can access
 # For now, let's use a simple server for the web build

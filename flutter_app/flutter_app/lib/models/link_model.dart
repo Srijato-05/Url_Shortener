@@ -8,6 +8,8 @@ class LinkModel {
   final DateTime? expiryTime;
   final String? customAlias;
 
+  final String? qrUrl;
+
   LinkModel({
     required this.id,
     this.title,
@@ -17,6 +19,7 @@ class LinkModel {
     required this.createdAt,
     this.expiryTime,
     this.customAlias,
+    this.qrUrl,
   });
 
   factory LinkModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +32,21 @@ class LinkModel {
       createdAt: DateTime.parse(json['created_at']),
       expiryTime: json['expiry_time'] != null ? DateTime.parse(json['expiry_time']) : null,
       customAlias: json['custom_alias'],
+      qrUrl: json['qr_url'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'original_url': originalUrl,
+      'short_code': shortCode,
+      'short_url': shortUrl,
+      'created_at': createdAt.toIso8601String(),
+      'expiry_time': expiryTime?.toIso8601String(),
+      'custom_alias': customAlias,
+      'qr_url': qrUrl,
+    };
   }
 }

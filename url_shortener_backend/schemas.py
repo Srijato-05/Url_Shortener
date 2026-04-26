@@ -2,20 +2,6 @@ from pydantic import BaseModel, EmailStr, HttpUrl
 from typing import Optional, List
 from datetime import datetime
 
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-
-class UserResponse(BaseModel):
-    id: int
-    email: EmailStr
-    created_at: datetime
-    class Config:
-        from_attributes = True
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
 
 class LinkCreate(BaseModel):
     original_url: HttpUrl
@@ -31,6 +17,7 @@ class LinkResponse(BaseModel):
     created_at: datetime
     expiry_time: Optional[datetime]
     custom_alias: Optional[str]
+    qr_url: Optional[str] = None
     class Config:
         from_attributes = True
 
@@ -42,7 +29,12 @@ class ClickResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class LinkAnalytics(BaseModel):
-    link: LinkResponse
+class DeviceStats(BaseModel):
+    device_type: str
+    count: int
+
+class LinkStats(BaseModel):
     total_clicks: int
-    recent_clicks: List[ClickResponse]
+    device_distribution: List[DeviceStats]
+    created_at: datetime
+

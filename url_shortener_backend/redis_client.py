@@ -3,7 +3,7 @@ import os
 
 try:
     redis_host = os.getenv("REDIS_HOST", "localhost")
-    redis_client = redis.Redis(host=redis_host, port=6379, db=0, socket_connect_timeout=1)
+    redis_client = redis.Redis(host=redis_host, port=6379, db=0, socket_connect_timeout=1, decode_responses=True)
     redis_client.ping()
 except redis.ConnectionError:
     # Fallback to a mock-like behavior if Redis is down
