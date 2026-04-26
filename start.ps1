@@ -1,3 +1,7 @@
+param (
+    [string]$Domain = ""
+)
+
 # URL Shortener Automated Startup Script
 # This script automatically discovers your LAN IP and starts the Docker services
 # ensuring that shortened URLs are reachable by everyone on your network.
@@ -18,9 +22,15 @@ if (-not $ip) {
     $ip = "localhost"
 }
 
-$apiBase = "http://$($ip):8000"
+if ($Domain) {
+    $ip = $Domain
+    $apiBase = "http://$Domain"
+} else {
+    $apiBase = "http://$($ip):8000"
+}
+
 Write-Output "---"
-Write-Output "Primary IP Detected: $ip"
+Write-Output "Primary Identity: $ip"
 Write-Output "Base URL Configured: $apiBase"
 Write-Output "---"
 
@@ -30,6 +40,10 @@ docker compose up --build -d
 
 Write-Output ""
 Write-Output "Deployment Successful!"
+if ($Domain) {
+    Write-Output "Branded Identity Active: $Domain"
+    Write-Output "Branded Links: http://$($Domain)/[alias]"
+}
 Write-Output "Access the Dashboard at: http://$($ip):8080"
 Write-Output "Access the API (Swagger) at: http://$($ip):8000/docs"
 Write-Output ""
