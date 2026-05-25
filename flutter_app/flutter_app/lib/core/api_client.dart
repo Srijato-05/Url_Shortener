@@ -19,16 +19,19 @@ class ApiClient {
   String _resolveBaseUrl() {
     if (!kIsWeb) return 'http://10.0.2.2:8000';
 
-    // Purely dynamic origin resolution for Web
     final currentOrigin = html.window.location.origin;
     
-    // If the frontend is served on port 8080 (Dev mode), assume the API is on port 8000
+    // If running on dev port 8080, assume backend is on 8000
     if (currentOrigin.contains(':8080')) {
        return currentOrigin.replaceFirst(':8080', ':8000');
     }
 
-    // Gateway mode (Port 80/443): Use /api prefix for all backend calls
-    if (!currentOrigin.contains(':')) {
+    // Check if the origin has a port specified (e.g. http://localhost:1234)
+    // We check for a colon that is NOT part of the protocol (http:// or https://)
+    final hasPort = RegExp(r':\d+$').hasMatch(currentOrigin);
+
+    if (!hasPort) {
+       // Gateway mode (Port 80/443): Use /api prefix for all backend calls
        return '$currentOrigin/api';
     }
 

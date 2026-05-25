@@ -68,8 +68,14 @@ def shorten_link(link: schemas.LinkCreate, request: Request, db: Session = Depen
     db.commit()
     db.refresh(db_link)
     
-    # Cache in Redis
-    redis_client.set(short_code, str(link.original_url))
+    # Cache in Redis with optional TTL if expiry_time is set
+    if db_link.expiry_time:
+        now = datetime.now(timezone.utc) if db_link.expiry_time.tzinfo else datetime.utcnow()
+        ttl = int((db_link.expiry_time - now).total_seconds())
+        if ttl > 0:
+            redis_client.setex(short_code, ttl, str(link.original_url))
+    else:
+        redis_client.set(short_code, str(link.original_url))
     
     # Dynamic URL Construction
     base_url = utils.get_base_url(request)
@@ -113,11 +119,19 @@ def redirect_to_url(short_code: str, request: Request, db: Session = Depends(get
             raise HTTPException(status_code=404, detail="Link not found")
         
         # Check expiry
-        if db_link.expiry_time and db_link.expiry_time < datetime.utcnow():
-            raise HTTPException(status_code=410, detail="Link expired")
+        if db_link.expiry_time:
+            now = datetime.now(timezone.utc) if db_link.expiry_time.tzinfo else datetime.utcnow()
+            if db_link.expiry_time < now:
+                raise HTTPException(status_code=410, detail="Link expired")
             
         target_url = db_link.original_url
-        redis_client.set(short_code, target_url)
+        if db_link.expiry_time:
+            now = datetime.now(timezone.utc) if db_link.expiry_time.tzinfo else datetime.utcnow()
+            ttl = int((db_link.expiry_time - now).total_seconds())
+            if ttl > 0:
+                redis_client.setex(short_code, ttl, target_url)
+        else:
+            redis_client.set(short_code, target_url)
 
     # 3. Log analytics (Async via Celery)
     log_click.delay(

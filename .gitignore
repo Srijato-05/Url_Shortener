@@ -33,3 +33,6 @@ build_log_fixed.txt
 verify_env.py
 *.md
 !README.md
+Url_Shortner/
+build_err.log
+commands.txt

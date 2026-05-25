@@ -132,7 +132,18 @@ class _ShortenFormState extends ConsumerState<ShortenForm> {
                           firstDate: DateTime.now(),
                           lastDate: DateTime.now().add(const Duration(days: 365)),
                         );
-                        if (date != null) setState(() => _selectedDate = date);
+                        if (date != null) {
+                          setState(() {
+                            _selectedDate = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                              23,
+                              59,
+                              59,
+                            );
+                          });
+                        }
                       },
                       icon: const Icon(Icons.calendar_today),
                       label: Text(_selectedDate == null 

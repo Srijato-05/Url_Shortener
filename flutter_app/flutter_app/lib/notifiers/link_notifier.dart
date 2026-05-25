@@ -18,7 +18,7 @@ class LinkNotifier extends StateNotifier<AsyncValue<List<LinkModel>>> {
       final response = await client.dio.post('/shorten', data: {
         'original_url': url,
         if (customAlias != null && customAlias.isNotEmpty) 'custom_alias': customAlias,
-        if (expiry != null) 'expiry_time': expiry.toIso8601String(),
+        if (expiry != null) 'expiry_time': expiry.toUtc().toIso8601String(),
       });
       final newLink = LinkModel.fromJson(response.data);
       return newLink;

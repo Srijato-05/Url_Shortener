@@ -12,4 +12,5 @@ except redis.ConnectionError:
         def __init__(self): self.data = {}
         def get(self, key): return self.data.get(key)
         def set(self, key, value): self.data[key] = value
+        def setex(self, name, time, value): self.data[name] = value
     redis_client = MockRedis()
