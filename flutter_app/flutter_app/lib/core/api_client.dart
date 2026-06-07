@@ -26,16 +26,8 @@ class ApiClient {
        return currentOrigin.replaceFirst(':8080', ':8000');
     }
 
-    // Check if the origin has a port specified (e.g. http://localhost:1234)
-    // We check for a colon that is NOT part of the protocol (http:// or https://)
-    final hasPort = RegExp(r':\d+$').hasMatch(currentOrigin);
-
-    if (!hasPort) {
-       // Gateway mode (Port 80/443): Use /api prefix for all backend calls
-       return '$currentOrigin/api';
-    }
-
-    return currentOrigin;
+    // Route all other requests (Nginx gateway or public tunnels) via the /api prefix
+    return '$currentOrigin/api';
   }
 
   Future<Map<String, dynamic>> fetchStats(String shortCode) async {

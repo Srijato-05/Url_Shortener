@@ -27,7 +27,6 @@ Thumbs.db
 
 # Environment and Temporary
 .env
-.env.example
 build_log.txt
 build_log_fixed.txt
 verify_env.py

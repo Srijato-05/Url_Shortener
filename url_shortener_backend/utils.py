@@ -36,18 +36,16 @@ def get_base_url(request) -> str:
     # Trust X-Forwarded headers (proxies/tunnels) or standard Host header
     host = request.headers.get("X-Forwarded-Host", request.headers.get("host", "localhost:8000"))
     scheme = request.headers.get("X-Forwarded-Proto", request.url.scheme)
-    
-    # 3. Dynamic Loopback Sanitization
-    # If accessed locally, replace loopback with a sharable LAN identity
+
+    # 3. Dynamic Loopback Sanitization using host's mDNS hostname
     if any(lb in host.lower() for lb in ["localhost", "127.0.0.1", "[::1]", "0.0.0.0"]):
-        primary_ip = get_primary_ip()
-        if primary_ip != "127.0.0.1":
+        host_hostname = os.getenv("HOST_HOSTNAME")
+        if host_hostname and host_hostname.lower() != "localhost":
             if ":" in host:
                 port = host.split(":")[1]
-                host = f"{primary_ip}:{port}"
+                host = f"{host_hostname}.local:{port}"
             else:
-                # If no port in header, assume default API port 8000 for loopback fallback
-                host = f"{primary_ip}:8000"
+                host = f"{host_hostname}.local"
 
     return f"{scheme}://{host}"
 

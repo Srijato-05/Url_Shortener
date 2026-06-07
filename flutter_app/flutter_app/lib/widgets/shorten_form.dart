@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 import '../notifiers/link_notifier.dart';
 import '../notifiers/history_notifier.dart';
 import '../models/link_model.dart';
@@ -91,8 +93,36 @@ class _ShortenFormState extends ConsumerState<ShortenForm> {
 
   @override
   Widget build(BuildContext context) {
+    final isLocalhost = html.window.location.hostname == 'localhost' || html.window.location.hostname == '127.0.0.1';
+
     return Column(
       children: [
+        if (isLocalhost)
+          Container(
+            margin: const EdgeInsets.only(bottom: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.lightbulb_outline, color: Colors.amber.shade900, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'To scan QR codes from other devices (like mobile phones) on the same Wi-Fi, access this page using your computer\'s LAN IP or computer name on port 8081 (e.g. http://192.168.31.246:8081) instead of localhost.',
+                    style: TextStyle(
+                      color: Colors.amber.shade900,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         Card(
           elevation: 4,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

@@ -27,8 +27,7 @@ services:
       - REDIS_HOST=redis
       - API_BASE_URL=${API_BASE_URL}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
-    ports:
-      - "8000:8000"
+      - HOST_HOSTNAME=${COMPUTERNAME:-${HOSTNAME:-}}
     depends_on:
       - postgres
       - redis
@@ -38,8 +37,6 @@ services:
       context: ./flutter_app/flutter_app
       args:
         - API_BASE_URL=${API_BASE_URL}
-    ports:
-      - "8080:8080"
     depends_on:
       - backend
 
@@ -54,6 +51,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_URL=redis://redis:6379/0
       - API_BASE_URL=${API_BASE_URL}
+      - HOST_HOSTNAME=${COMPUTERNAME:-${HOSTNAME:-}}
     depends_on:
       - redis
       - postgres
