@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 import '../models/link_model.dart';
 import '../notifiers/link_notifier.dart';
 import '../notifiers/history_notifier.dart';
+import '../core/share_helper.dart';
 import 'glass_container.dart';
 
 class HistoryList extends ConsumerStatefulWidget {
@@ -196,16 +200,24 @@ class _HistoryListState extends ConsumerState<HistoryList> {
                       icon: const Icon(Icons.bar_chart, color: Color(0xFFC5A059)),
                       onPressed: () => _showStatsDialog(context, link),
                       tooltip: 'Analytics',
-                      splashRadius: 24,
+                      splashRadius: 20,
                     ),
                     IconButton(
                       icon: const Icon(Icons.qr_code, color: Color(0xFF8C6D31)),
                       onPressed: () => _showQrDialog(context, link),
                       tooltip: 'QR Code',
-                      splashRadius: 24,
+                      splashRadius: 20,
                     ),
                     IconButton(
-                      icon: Icon(Icons.content_copy, color: Colors.white.withOpacity(0.4)),
+                      icon: const Icon(Icons.open_in_new, color: Color(0xFFC5A059)),
+                      onPressed: () {
+                        html.window.open(link.shortUrl, '_blank');
+                      },
+                      tooltip: 'Open Link',
+                      splashRadius: 20,
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.copy, color: Colors.white.withOpacity(0.45)),
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: link.shortUrl));
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -213,7 +225,16 @@ class _HistoryListState extends ConsumerState<HistoryList> {
                         );
                       },
                       tooltip: 'Copy Link',
-                      splashRadius: 24,
+                      splashRadius: 20,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.share, color: Color(0xFFC5A059)),
+                      onPressed: () => ShareHelper.shareLink(
+                        context: context,
+                        url: link.shortUrl,
+                      ),
+                      tooltip: 'Share Link',
+                      splashRadius: 20,
                     ),
                   ],
                 ),
@@ -445,8 +466,35 @@ class _HistoryListState extends ConsumerState<HistoryList> {
                 ),
                 const SizedBox(height: 24),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFE5C180), Color(0xFF9E7E45)],
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          final hostname = html.window.location.hostname;
+                          final qrUrl = 'http://$hostname:8000/qr/${link.shortCode}';
+                          ShareHelper.downloadQr(
+                            shortCode: link.shortCode,
+                            qrUrl: qrUrl,
+                          );
+                        },
+                        icon: const Icon(Icons.download, size: 14, color: Colors.black),
+                        label: const Text('Download', style: TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.w800)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       style: TextButton.styleFrom(

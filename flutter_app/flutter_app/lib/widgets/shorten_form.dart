@@ -9,6 +9,7 @@ import 'dart:html' as html;
 import '../notifiers/link_notifier.dart';
 import '../notifiers/history_notifier.dart';
 import '../models/link_model.dart';
+import '../core/share_helper.dart';
 import 'glass_container.dart';
 
 class ShortenForm extends ConsumerStatefulWidget {
@@ -315,9 +316,42 @@ class _ShortenFormState extends ConsumerState<ShortenForm> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
+                    // Share Link (Gradient)
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFE5C180), Color(0xFF9E7E45)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFE5C180).withOpacity(0.15),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton.icon(
+                        onPressed: () => ShareHelper.shareLink(
+                          context: context,
+                          url: _lastLink!.shortUrl,
+                        ),
+                        icon: const Icon(Icons.share, size: 16, color: Colors.black),
+                        label: const Text('Share Link', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                    // Download QR (Gradient)
                     Container(
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
@@ -333,34 +367,51 @@ class _ShortenFormState extends ConsumerState<ShortenForm> {
                       ),
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          Clipboard.setData(ClipboardData(text: _lastLink!.shortUrl));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Copied URL to clipboard.')),
+                          final hostname = html.window.location.hostname;
+                          final port = html.window.location.port;
+                          final qrUrl = 'http://$hostname:8000/qr/${_lastLink!.shortCode}';
+                          ShareHelper.downloadQr(
+                            shortCode: _lastLink!.shortCode,
+                            qrUrl: qrUrl,
                           );
                         },
-                        icon: const Icon(Icons.copy, size: 16, color: Colors.black),
-                        label: const Text('Copy URL', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800)),
+                        icon: const Icon(Icons.download, size: 16, color: Colors.black),
+                        label: const Text('Download QR', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           elevation: 0,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    // Copy URL (Outlined)
                     OutlinedButton.icon(
-                      onPressed: () async {
-                         if (await canLaunchUrlString(_lastLink!.shortUrl)) {
-                            await launchUrlString(_lastLink!.shortUrl, mode: LaunchMode.externalApplication);
-                         }
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: _lastLink!.shortUrl));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Copied URL to clipboard.')),
+                        );
                       },
-                      icon: const Icon(Icons.open_in_new, size: 16, color: Color(0xFFC5A059)),
-                      label: const Text('Open Link', style: TextStyle(color: Color(0xFFC5A059), fontWeight: FontWeight.w700)),
+                      icon: const Icon(Icons.copy, size: 16, color: Color(0xFFC5A059)),
+                      label: const Text('Copy URL', style: TextStyle(color: Color(0xFFC5A059), fontWeight: FontWeight.w800)),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFFC5A059)),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    // Open Link (Outlined)
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        html.window.open(_lastLink!.shortUrl, '_blank');
+                      },
+                      icon: const Icon(Icons.open_in_new, size: 16, color: Color(0xFFC5A059)),
+                      label: const Text('Open Link', style: TextStyle(color: Color(0xFFC5A059), fontWeight: FontWeight.w800)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFC5A059)),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),

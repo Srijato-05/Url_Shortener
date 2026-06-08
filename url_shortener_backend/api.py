@@ -94,7 +94,11 @@ def get_qr_code(short_code: str, request: Request, db: Session = Depends(get_db)
         buf = BytesIO()
         img.save(buf, format="PNG")  # type: ignore
         logger.info(f"Successfully generated QR PNG image for short code '{short_code}'")
-        return Response(content=buf.getvalue(), media_type="image/png")
+        
+        headers = {
+            "Content-Disposition": f'attachment; filename="qr_{short_code}.png"'
+        }
+        return Response(content=buf.getvalue(), media_type="image/png", headers=headers)
     except Exception as e:
         logger.error(f"Failed to generate or serialize QR code image: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="QR code generation failed")
