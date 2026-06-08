@@ -84,7 +84,6 @@ $content = Get-Content $envFile
         $newContent += "API_BASE_URL=$apiBase"
     }
     $newContent | Set-Content $envFile
-}
 
 docker compose up --build -d
 docker compose restart nginx
