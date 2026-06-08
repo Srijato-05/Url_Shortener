@@ -4,15 +4,13 @@ This project is a full-stack, containerized URL shortening system designed for a
 
 ## System Architecture
 
-The application is built as a distributed system of four primary services orchestrated via Docker:
+The application is built as a simplified, lightweight system of two services orchestrated via Docker:
 
-1.  Frontend: A Flutter Web application that serves as the entry point for users.
-2.  Backend: A FastAPI-based REST API handling core logic and data persistence.
-3.  Worker: A Celery background worker for processing high-volume tasks like click logging.
-4.  Data Layer: A PostgreSQL database for persistent storage and Redis for message queuing and caching.
+1.  **Frontend**: A Flutter Web application that serves as the user interface.
+2.  **Backend**: A FastAPI-based REST API handling core logic, URL redirection, metadata scraping, and database persistence.
 
 ### Integration Flow
-When a user submits a URL, the frontend sends an asynchronous request to the backend. The backend validates the URL, checks for custom alias availability, and persists the record to PostgreSQL. To minimize latency for the end-user, data-heavy operations like click analytics are offloaded to Redis. The Celery worker then consumes these tasks from Redis and updates the click history in the database without blocking the main request-response cycle.
+When a user submits a URL, the frontend sends an asynchronous request to the backend. The backend validates the URL, checks custom alias availability, and persists the record to an SQLite database. To minimize latency for the end-user, heavy operations like click logging and destination metadata scraping (for titles and favicons) are processed asynchronously using FastAPI's built-in `BackgroundTasks`.
 
 ---
 
@@ -22,14 +20,13 @@ The backend is built with Python 3.12 and FastAPI. It follows a modular design w
 
 ### API Layer
 The API defines several key endpoints:
--   Shorten: Accepts a URL, optional custom alias, and optional expiry time. Returns a unique, absolute short URL.
--   Redirection: Intercepts short codes, logs metadata in the background via Celery, and redirects the user to the target destination.
+-   **Shorten**: Accepts a URL, optional custom alias, and optional expiry time. Returns a unique, absolute short URL.
+-   **Redirection**: Intercepts short codes, triggers background click analytics logging, and redirects the user to the destination.
 
 ### Data Modeling and Relations
-The system uses SQLAlchemy as its ORM. The relational schema is centered around three primary entities:
-
--   Link Table: Stores the mapping between short codes and original URLs, along with expiry and custom alias metadata.
--   Click Table: Records telemetry (timestamp, device, etc.) for every redirect via an asynchronous worker.
+The system uses SQLAlchemy as its ORM. The relational schema is centered around two primary entities:
+-   **Link Table**: Stores the mapping between short codes and original URLs, along with expiry and custom alias metadata.
+-   **Click Table**: Records telemetry (timestamp, device, etc.) for every redirect.
 
 ### Asynchronous Analytics Pipeline
 The system captures rich telemetry for every redirection without impacting performance. When a link is visited, the following metadata is logged in the background:
@@ -39,7 +36,7 @@ The system captures rich telemetry for every redirection without impacting perfo
 -   **Referrer**: Captured to track the source of the click.
 -   **Timestamp**: UTC-aware precise event timing.
 
-This event is dispatched to a Redis queue and processed by a Celery worker, which persists the data to PostgreSQL.
+These tasks are executed asynchronously by the FastAPI server immediately after sending the redirect response to the client.
 
 ---
 
@@ -63,13 +60,12 @@ The design prioritizes utility. The landing page features a prominent 'Quick Sho
 The entire lifecycle is managed through Docker Compose.
 
 ### Docker Configuration
--   Backend/Worker: Uses a slim Python 3.12 image. It leverages Poetry for dependency management, ensuring consistent environments across development and production.
+-   Backend: Uses a slim Python 3.12 image. It leverages Poetry for dependency management, ensuring consistent environments across development and production.
 -   Frontend: Uses a multi-stage build starting with a Java/Flutter environment to compile the web assets, then serving them via a lightweight web server.
 
 ### Environment Configuration
 The system relies on several environment variables for service discovery and behavioral configuration:
--   DATABASE_URL: Link to the PostgreSQL instance.
--   REDIS_URL: Connection string for the Redis queue.
+-   DATABASE_URL: Link to the SQLite database instance (defaults to `sqlite:///app/data/url_shortener.db` inside the container).
 -   API_BASE_URL: The public-facing URL of the API (e.g., `http://localhost:8000`), used to construct absolute short links.
 -   ALLOWED_ORIGINS: A comma-separated list of origins permitted to access the API via CORS.
 

@@ -1,6 +1,7 @@
 name: url-shortener-new
 services:
   postgres:
+    container_name: postgres
     image: postgres:15
     environment:
       POSTGRES_DB: url_db
@@ -12,12 +13,16 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
+    container_name: redis
     image: redis:7
     ports:
       - "6379:6379"
 
   backend:
+    container_name: backend
     build: ./url_shortener_backend
+    ports:
+      - "8000:8000"
     volumes:
       - ./url_shortener_backend:/app
       - /app/.venv
@@ -33,38 +38,32 @@ services:
       - redis
 
   frontend:
+    container_name: frontend
     build:
       context: ./flutter_app/flutter_app
       args:
         - API_BASE_URL=${API_BASE_URL}
+    ports:
+      - "8080:8080"
     depends_on:
       - backend
 
   worker:
+    container_name: worker
     build: ./url_shortener_backend
-    command: python -m poetry run celery -A celery_worker.celery_app worker --loglevel=info
+    command: python -m poetry run celery -A tasks.celery_app worker --loglevel=info
     volumes:
       - ./url_shortener_backend:/app
       - /app/.venv
     environment:
-      - DATABASE_URL=postgresql://user:password@postgres/url_db
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:password@postgres/url_db}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - REDIS_HOST=redis
-      - REDIS_URL=redis://redis:6379/0
       - API_BASE_URL=${API_BASE_URL}
       - HOST_HOSTNAME=${COMPUTERNAME:-${HOSTNAME:-}}
     depends_on:
       - redis
       - postgres
-
-  nginx:
-    image: nginx:latest
-    ports:
-      - "8081:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on:
-      - frontend
-      - backend
 
 volumes:
   postgres_data:

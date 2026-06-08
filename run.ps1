@@ -2,9 +2,9 @@ param (
     [string]$Domain = ""
 )
 
-# URL Shortener Automated Startup Script
-# This script automatically discovers your LAN IP and starts the Docker services
-# ensuring that shortened URLs are reachable by everyone on your network.
+# URL Shortener Automated Run Script (Fast Launch)
+# This script automatically discovers your LAN IP, sets up the environment variables,
+# and starts the existing Docker containers instantly without rebuilding them.
 
 # 1. Discover Primary IPv4 Address (Prioritizing active internet-facing network adapter)
 $activeRoute = Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Where-Object { $_.NextHop -ne '0.0.0.0' } | Select-Object -First 1
@@ -22,7 +22,7 @@ if (-not $ip) {
     $ip = ($addresses | Where-Object { 
         $_.IPAddress -like '192.168.*' -or 
         $_.IPAddress -like '10.*' -or 
-        $_.IPAddress -match '^172\.(1[6-9]|2[0-9]|3[0-1])\.'
+        $_.IPAddress -match '^172\.(1[6-9]|2[0-9]|3[0-1])\.' 
     } | Select-Object -First 1).IPAddress
     
     if (-not $ip) {
@@ -36,8 +36,6 @@ if (-not $ip) {
 }
 
 if ($Domain) {
-    # 1.1 Automated Branding Registration (Requires Admin)
-    # Note: For cross-device support (phones/tablets), use 'naiyo24.local' and set PC name to 'naiyo24'
     try {
         $hostFile = "$env:windir\System32\drivers\etc\hosts"
         $mapping = "127.0.0.1  $Domain"
@@ -64,7 +62,7 @@ Write-Output "Primary Identity: $ip"
 Write-Output "Base URL Configured: $apiBase"
 Write-Output "---"
 
-# 2. Inject into Environment, Persist in .env, and Start Docker
+# 2. Inject into Environment, Persist in .env, and Start Docker Compose Fast
 $env:API_BASE_URL = $apiBase
 
 $envFile = Join-Path $PSScriptRoot ".env"
@@ -97,10 +95,11 @@ if (-not $found) {
 }
 $newContent | Set-Content $envFile
 
-docker compose up --build -d
+# Start existing services without rebuild flag
+docker compose up -d
 
 Write-Output ""
-Write-Output "Deployment Successful!"
+Write-Output "Launch Successful (Fast Start)!"
 if ($Domain) {
     Write-Output "Branded Identity Active: $Domain"
     Write-Output "Branded Links: http://$($Domain):8000/[alias]"

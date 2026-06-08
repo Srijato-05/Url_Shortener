@@ -1,21 +1,19 @@
-from celery import Celery # type: ignore
+from typing import Optional
 import os
-
-redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-
-celery_app = Celery(
-    'tasks',
-    broker=redis_url,
-    backend=redis_url
-)
-
-import models # type: ignore
+import logging
 import user_agents # type: ignore
-import utils # type: ignore
+from celery import Celery # type: ignore
+import models, utils # type: ignore
 from database import SessionLocal # type: ignore
+
+logger = logging.getLogger("url_shortener.tasks")
+
+redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+celery_app = Celery("tasks", broker=redis_url, backend=redis_url)
 
 @celery_app.task
 def scrape_metadata_task(short_code: str, original_url: str):
+    logger.info(f"Starting metadata scraping for short code '{short_code}' and URL '{original_url}'")
     db = SessionLocal()
     try:
         metadata = utils.scrape_metadata(original_url)
@@ -25,16 +23,21 @@ def scrape_metadata_task(short_code: str, original_url: str):
             link.description = metadata.get("description")
             link.favicon_url = metadata.get("favicon_url")
             db.commit()
+            logger.info(f"Successfully scraped and updated metadata for short code '{short_code}'")
+        else:
+            logger.warning(f"Link not found in database for short code '{short_code}' during metadata scraping")
+    except Exception as e:
+        logger.error(f"Error occurred during metadata scraping for short code '{short_code}': {e}", exc_info=True)
     finally:
         db.close()
 
 @celery_app.task
-def log_click(short_code, ip=None, ua=None, referrer=None):
+def log_click(short_code: str, ip: Optional[str] = None, ua: Optional[str] = None, referrer: Optional[str] = None):
+    logger.info(f"Logging click redirect for short code '{short_code}'")
     db = SessionLocal()
     try:
         link = db.query(models.Link).filter(models.Link.short_code == short_code).first()
         if link:
-            # Parse user agent
             parsed_ua = user_agents.parse(ua) if ua else None
             device_type = "Unknown"
             if parsed_ua:
@@ -61,5 +64,10 @@ def log_click(short_code, ip=None, ua=None, referrer=None):
             )
             db.add(click)
             db.commit()
+            logger.info(f"Successfully logged click redirect analytics for short code '{short_code}'")
+        else:
+            logger.warning(f"Link not found in database for short code '{short_code}' during click logging")
+    except Exception as e:
+        logger.error(f"Error occurred during click logging for short code '{short_code}': {e}", exc_info=True)
     finally:
         db.close()
