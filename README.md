@@ -18,24 +18,24 @@ graph TD
     %% Define System Actors and Nodes
     subgraph ClientSpace ["Client Browser Environment"]
         UserAgent["User Web Browser"]
-        FlutterWeb["Flutter Web App (Port 8080)"]
+        FlutterWeb["Flutter Web App - Port 8080"]
     end
 
     subgraph RouterNetwork ["Reverse Proxy & Host Domain Mapping"]
-        HostDNS["mDNS (电脑名.local) / Custom Host Domain Resolution"]
+        HostDNS["mDNS - Custom Host Domain Resolution"]
     end
 
     subgraph ServiceMesh ["Docker Compose Multi-Container Network"]
-        BackendAPI["FastAPI Backend (Port 8000)"]
-        RedisCache[("Redis Cache (Port 6379)")]
-        PostgresDB[("PostgreSQL DB (Port 5432)")]
+        BackendAPI["FastAPI Backend - Port 8000"]
+        RedisCache[(Redis Cache - Port 6379)]
+        PostgresDB[(PostgreSQL DB - Port 5432)]
         CeleryWorker["Celery Background Worker"]
     end
 
     %% Client Interactions
     UserAgent -->|HTTP GET /short_code| BackendAPI
     UserAgent -->|HTTP POST /shorten| BackendAPI
-    FlutterWeb -->|REST API Client (Dio)| BackendAPI
+    FlutterWeb -->|REST API Client with Dio| BackendAPI
     
     %% Host and Network mapping
     HostDNS -->|Configures environment variable| FlutterWeb
